@@ -1,0 +1,105 @@
+app GPTClone {
+  wasp: {
+    version: "^0.14.0"
+  },
+  title: "GPT Clone",
+  
+  auth: {
+    userEntity: User,
+    methods: {
+      google: {},
+      gitHub: {}
+    },
+    onAuthFailedRedirectTo: "/login",
+    onAuthSucceededRedirectTo: "/"
+  },
+  
+  db: {
+    system: PostgreSQL
+  }
+}
+
+// Entities
+entity User {=psl
+  id          Int       @id @default(autoincrement())
+  email       String    @unique
+  username    String?   @unique
+  createdAt   DateTime  @default(now())
+  conversations Conversation[]
+psl=}
+
+entity Conversation {=psl
+  id        Int       @id @default(autoincrement())
+  title     String
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  userId    Int
+  user      User      @relation(fields: [userId], references: [id])
+  messages  Message[]
+psl=}
+
+entity Message {=psl
+  id             Int          @id @default(autoincrement())
+  content        String
+  role           String       // "user", "assistant", "system"
+  createdAt      DateTime     @default(now())
+  conversationId Int
+  conversation   Conversation @relation(fields: [conversationId], references: [id])
+psl=}
+
+entity Agent {=psl
+  id          Int      @id @default(autoincrement())
+  name        String   @unique
+  description String
+  personality String
+  tools       String[] // JSON array of tool names
+  model       String   @default("gpt-4")
+  provider    String   @default("openrouter")
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+psl=}
+
+// Pages
+page MainPage {
+  component: import { MainPage } from "@src/MainPage"
+}
+
+page LoginPage {
+  component: import { LoginPage } from "@src/LoginPage"
+}
+
+// Routes
+route RootRoute { path: "/", to: MainPage }
+route LoginRoute { path: "/login", to: LoginPage }
+
+// Queries
+query getConversations {
+  fn: import { getConversations } from "@src/queries.js",
+  entities: [Conversation]
+}
+
+query getMessages {
+  fn: import { getMessages } from "@src/queries.js", 
+  entities: [Message]
+}
+
+query getAgents {
+  fn: import { getAgents } from "@src/queries.js",
+  entities: [Agent]
+}
+
+// Actions
+action createConversation {
+  fn: import { createConversation } from "@src/actions.js",
+  entities: [Conversation]
+}
+
+action sendMessage {
+  fn: import { sendMessage } from "@src/actions.js",
+  entities: [Message, Conversation]
+}
+
+action createAgent {
+  fn: import { createAgent } from "@src/actions.js",
+  entities: [Agent]
+}
