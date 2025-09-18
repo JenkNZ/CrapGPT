@@ -1,0 +1,87 @@
+// CrapGPT Simplified Wasp Entities - Mirrors Supabase Tables
+// Clean, minimal schema focused on core functionality
+
+entity Connection {=psl
+  id          String    @id @default(uuid())
+  userId      String    @map("user_id")
+  type        String    // "openops", "arcade", "hexstrike", etc.
+  name        String
+  scope       String    // JSON string of scopes/permissions
+  config      String?   // Encrypted JSON string or vault ref
+  active      Boolean   @default(true)
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  jobs Job[]
+
+  @@map("crapgpt_connections")
+psl=}
+
+entity Job {=psl
+  id           String    @id @default(uuid())
+  userId       String    @map("user_id")
+  agent        String    // Agent name/identifier
+  connectionId String?   @map("connection_id")
+  priority     String    @default("normal") // "low", "normal", "high", "urgent"
+  status       String    @default("pending") // "pending", "running", "completed", "failed"
+  result       String?   // JSON result string
+  meta         String?   // JSON metadata string
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  connection Connection? @relation(fields: [connectionId], references: [id], onDelete: SetNull)
+
+  @@map("crapgpt_jobs")
+psl=}
+
+entity Session {=psl
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  title     String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages Message[]
+
+  @@map("crapgpt_sessions")
+psl=}
+
+entity Message {=psl
+  id        String   @id @default(uuid())
+  sessionId String   @map("session_id")
+  userId    String   @map("user_id")
+  role      String   // "user", "assistant", "system"
+  content   String
+  metadata  String?  // JSON metadata string
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("crapgpt_messages")
+psl=}
+
+// Enhanced User entity to include new relations
+entity User {=psl
+  id          String    @id @default(uuid())
+  email       String    @unique
+  name        String?
+  avatar      String?
+  preferences String?   // JSON string for user preferences
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  connections Connection[]
+  jobs        Job[]
+  sessions    Session[]
+  messages    Message[]
+
+  @@map("crapgpt_users")
+psl=}

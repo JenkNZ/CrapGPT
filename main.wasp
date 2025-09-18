@@ -1,31 +1,65 @@
-app GPTClone {
+app AgentForge {
   wasp: {
     version: "^0.14.0"
   },
-  title: "GPT Clone",
+  title: "AgentForge - Enterprise AI Orchestration Platform",
+  
+  // AI Orchestration Dependencies
+  dependencies: [
+    ("openai", "^4.20.0"),
+    ("axios", "^1.6.0"),
+    ("@supabase/supabase-js", "^2.38.0"),
+    ("@fal-ai/serverless-client", "^0.14.0"),
+    ("uuid", "^9.0.1"),
+    ("crypto-js", "^4.2.0"),
+    ("ws", "^8.14.0"),
+    ("dotenv", "^16.3.0"),
+    ("node-fetch", "^3.3.2")
+  ],
   
   auth: {
     userEntity: User,
     methods: {
-      google: {},
-      gitHub: {}
+      google: {
+        configFn: import { getGoogleAuthConfig } from "@src/auth/config.js",
+        getUserFieldsFn: import { getGoogleUserFields } from "@src/auth/config.js"
+      },
+      gitHub: {
+        configFn: import { getGitHubAuthConfig } from "@src/auth/config.js",
+        getUserFieldsFn: import { getGitHubUserFields } from "@src/auth/config.js"
+      }
     },
     onAuthFailedRedirectTo: "/login",
     onAuthSucceededRedirectTo: "/"
   },
   
   db: {
-    system: PostgreSQL
+    system: PostgreSQL,
+    seeds: [
+      import { seedAgents } from "@src/dbSeeds.js"
+    ]
   }
 }
 
 // Entities
 entity User {=psl
-  id          Int       @id @default(autoincrement())
-  email       String    @unique
-  username    String?   @unique
-  createdAt   DateTime  @default(now())
-  conversations Conversation[]
+  id               Int              @id @default(autoincrement())
+  email            String           @unique
+  username         String?          @unique
+  name             String?
+  avatar           String?
+  googleId         String?          @unique
+  githubId         String?          @unique
+  preferences      String?          // JSON string for user preferences
+  isEmailVerified  Boolean          @default(false)
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  conversations    Conversation[]
+  agentMemories    AgentMemory[]
+  chatSessions     ChatSession[]
+  agentTasks       AgentTask[]
+  toolExecutions   ToolExecution[]
+  connections      Connection[]
 psl=}
 
 entity Conversation {=psl
@@ -48,15 +82,198 @@ entity Message {=psl
 psl=}
 
 entity Agent {=psl
+  id                 Int           @id @default(autoincrement())
+  name               String        @unique
+  description        String
+  personality        String
+  personalityTraits  String[]      // Array of personality traits
+  defaultProvider    String        @default("openrouter")
+  defaultModel       String        @default("openai/gpt-4o")
+  memorySettings     String        // JSON string for memory configuration
+  toolAccess         String        // JSON string for tool permissions
+  tools              String[]      // Array of available tool names
+  capabilities       String        // JSON string for agent capabilities (delegation, multi-provider, etc.)
+  providerConfig     String        // JSON string for provider routing configuration
+  delegationRules    String?       // JSON string for agent delegation rules
+  isActive           Boolean       @default(true)
+  canDelegate        Boolean       @default(false)
+  createdAt          DateTime      @default(now())
+  memories           AgentMemory[]
+  chatMessages       ChatMessage[]
+  delegatedTasks     AgentTask[]   @relation("DelegatingAgent")
+  executedTasks      AgentTask[]   @relation("ExecutingAgent")
+  toolExecutions     ToolExecution[]
+  connections        AgentConnection[]
+psl=}
+
+entity AgentMemory {=psl
   id          Int      @id @default(autoincrement())
-  name        String   @unique
-  description String
-  personality String
-  tools       String[] // JSON array of tool names
-  model       String   @default("gpt-4")
-  provider    String   @default("openrouter")
-  isActive    Boolean  @default(true)
+  agentId     Int
+  agent       Agent    @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  userId      Int
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  input       String   // User input or task description
+  output      String   // Agent response or result
+  structuredData String? // JSON string for structured data storage
+  context     String?  // Additional context (JSON)
+  memoryType  String   @default("short_term") // "short_term", "long_term", "task", "delegation"
+  importance  Int      @default(1) // 1-10 scale for memory prioritization
+  tags        String[] // Array of tags for categorization
+  relatedTaskId Int?   // Reference to related AgentTask
   createdAt   DateTime @default(now())
+  
+  @@index([agentId, userId, createdAt])
+  @@index([agentId, userId, memoryType])
+  @@index([tags])
+psl=}
+
+entity ChatSession {=psl
+  id          Int         @id @default(autoincrement())
+  userId      Int
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title       String      @default("New Chat")
+  isActive    Boolean     @default(true)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  messages    ChatMessage[]
+  
+  @@index([userId, updatedAt])
+psl=}
+
+entity ChatMessage {=psl
+  id            Int         @id @default(autoincrement())
+  sessionId     Int
+  session       ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  agentId       Int?
+  agent         Agent?      @relation(fields: [agentId], references: [id])
+  role          String      // "user" or "agent"
+  content       String      // Text content
+  images        String[]    // Array of image URLs
+  metadata      String?     // JSON metadata (provider, model, etc.)
+  isStreaming   Boolean     @default(false)
+  createdAt     DateTime    @default(now())
+  
+  @@index([sessionId, createdAt])
+psl=}
+
+// Agent task tracking for delegation and complex workflows
+entity AgentTask {=psl
+  id                Int         @id @default(autoincrement())
+  delegatingAgentId Int
+  delegatingAgent   Agent       @relation("DelegatingAgent", fields: [delegatingAgentId], references: [id])
+  executingAgentId  Int?
+  executingAgent    Agent?      @relation("ExecutingAgent", fields: [executingAgentId], references: [id])
+  userId            Int
+  user              User        @relation(fields: [userId], references: [id])
+  taskType          String      // "delegation", "tool_execution", "multi_provider"
+  title             String
+  description       String
+  input             String      // Task input
+  output            String?     // Task output
+  status            String      @default("pending") // "pending", "running", "completed", "failed"
+  priority          Int         @default(1)
+  metadata          String?     // JSON metadata for task execution
+  parentTaskId      Int?        // For nested delegations
+  parentTask        AgentTask?  @relation("TaskHierarchy", fields: [parentTaskId], references: [id])
+  subtasks          AgentTask[] @relation("TaskHierarchy")
+  toolExecutions    ToolExecution[]
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+  completedAt       DateTime?
+  
+  @@index([delegatingAgentId, status])
+  @@index([executingAgentId, status])
+  @@index([userId, createdAt])
+psl=}
+
+// Tool execution tracking
+entity ToolExecution {=psl
+  id          Int       @id @default(autoincrement())
+  taskId      Int?
+  task        AgentTask? @relation(fields: [taskId], references: [id])
+  agentId     Int
+  agent       Agent     @relation(fields: [agentId], references: [id])
+  userId      Int
+  user        User      @relation(fields: [userId], references: [id])
+  toolName    String    // Name of the executed tool
+  toolVersion String?   // Version of the tool
+  input       String    // Tool input parameters (JSON)
+  output      String?   // Tool output result (JSON)
+  status      String    @default("pending") // "pending", "running", "completed", "failed"
+  error       String?   // Error message if failed
+  executionTime Int?    // Execution time in milliseconds
+  metadata    String?   // Additional metadata (JSON)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  @@index([agentId, toolName])
+  @@index([userId, createdAt])
+  @@index([status])
+psl=}
+
+// Connection management for secure provider credentials
+entity Connection {=psl
+  id            String   @id @default(cuid())
+  userId        Int
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type          String   // "aws", "azure", "gcp", "github", "openops", "toolhive", "arcade", "mcpjungle"
+  name          String   // User-friendly name like "My AWS Dev Account"
+  description   String?  // Optional description
+  config        String   // Encrypted JSON config with credentials/tokens
+  scopes        String[] // Permission scopes ["read", "write", "admin"]
+  status        String   @default("active") // "active", "inactive", "revoked", "expired"
+  lastUsed      DateTime? // Track last usage for security
+  expiresAt     DateTime? // Optional expiration for temporary tokens
+  metadata      String?  // Additional metadata (JSON)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  // Relations
+  agentConnections AgentConnection[]
+  connectionLogs   ConnectionLog[]
+  
+  @@index([userId, type])
+  @@index([userId, status])
+  @@index([type, status])
+  @@unique([userId, type, name]) // Prevent duplicate connection names per user per type
+psl=}
+
+// Junction table for agent-connection relationships with permission scopes
+entity AgentConnection {=psl
+  id           String     @id @default(cuid())
+  agentId      Int
+  agent        Agent      @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  connectionId String
+  connection   Connection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  permissions  String[]   // Specific permissions for this agent-connection pair
+  isRequired   Boolean    @default(false) // Whether this connection is required for agent operation
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  
+  @@unique([agentId, connectionId])
+  @@index([agentId])
+  @@index([connectionId])
+psl=}
+
+// Audit log for connection usage
+entity ConnectionLog {=psl
+  id           String     @id @default(cuid())
+  connectionId String
+  connection   Connection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  userId       Int        // User who initiated the action
+  agentId      Int?       // Agent that used the connection (if applicable)
+  action       String     // "created", "updated", "used", "revoked", "expired"
+  context      String?    // Additional context (what operation, tool used, etc.)
+  ipAddress    String?
+  userAgent    String?
+  success      Boolean    @default(true)
+  error        String?    // Error message if action failed
+  metadata     String?    // Additional metadata (JSON)
+  createdAt    DateTime   @default(now())
+  
+  @@index([connectionId, createdAt])
+  @@index([userId, createdAt])
+  @@index([action])
 psl=}
 
 // Pages
@@ -68,9 +285,24 @@ page LoginPage {
   component: import { LoginPage } from "@src/LoginPage"
 }
 
+page SettingsPage {
+  component: import { SettingsPage } from "@src/SettingsPage"
+}
+
+page ConnectionsPage {
+  component: import { ConnectionsPage } from "@src/client/pages/ConnectionsPage.jsx"
+}
+
+page AnalyticsPage {
+  component: import { AnalyticsPage } from "@src/client/pages/AnalyticsPage.tsx"
+}
+
 // Routes
 route RootRoute { path: "/", to: MainPage }
 route LoginRoute { path: "/login", to: LoginPage }
+route SettingsRoute { path: "/settings", to: SettingsPage }
+route ConnectionsRoute { path: "/connections", to: ConnectionsPage }
+route AnalyticsRoute { path: "/analytics", to: AnalyticsPage }
 
 // Queries
 query getConversations {
@@ -102,4 +334,228 @@ action sendMessage {
 action createAgent {
   fn: import { createAgent } from "@src/actions.js",
   entities: [Agent]
+}
+
+action runAgent {
+  fn: import { runAgent } from "@src/actions.js",
+  entities: [Agent, AgentMemory, User]
+}
+
+action testAgentSystem {
+  fn: import { testAgentSystem } from "@src/actions.js",
+  entities: [Agent, AgentMemory, User]
+}
+
+query getAgentMemories {
+  fn: import { getAgentMemories } from "@src/queries.js",
+  entities: [AgentMemory]
+}
+
+query getAgentByName {
+  fn: import { getAgentByName } from "@src/queries.js",
+  entities: [Agent]
+}
+
+query getChatSessions {
+  fn: import { getChatSessions } from "@src/queries.js",
+  entities: [ChatSession]
+}
+
+query getChatMessages {
+  fn: import { getChatMessages } from "@src/queries.js",
+  entities: [ChatMessage]
+}
+
+action createChatSession {
+  fn: import { createChatSession } from "@src/actions.js",
+  entities: [ChatSession]
+}
+
+action sendChatMessage {
+  fn: import { sendChatMessage } from "@src/actions.js",
+  entities: [ChatSession, ChatMessage, Agent, AgentMemory]
+}
+
+action updateChatMessage {
+  fn: import { updateChatMessage } from "@src/actions.js",
+  entities: [ChatMessage]
+}
+
+query getUserProfile {
+  fn: import { getUserProfile } from "@src/queries.js",
+  entities: [User]
+}
+
+action updateUserProfile {
+  fn: import { updateUserProfile } from "@src/actions.js",
+  entities: [User]
+}
+
+action updateUserPreferences {
+  fn: import { updateUserPreferences } from "@src/actions.js",
+  entities: [User]
+}
+
+// Enhanced agent system actions
+action delegateTask {
+  fn: import { delegateTask } from "@src/actions.js",
+  entities: [Agent, AgentTask, AgentMemory, User]
+}
+
+action executeTool {
+  fn: import { executeTool } from "@src/actions.js",
+  entities: [Agent, ToolExecution, AgentMemory, User]
+}
+
+action runEnhancedAgent {
+  fn: import { runEnhancedAgent } from "@src/actions.js",
+  entities: [Agent, AgentMemory, AgentTask, ToolExecution, User]
+}
+
+action completeTask {
+  fn: import { completeTask } from "@src/actions.js",
+  entities: [AgentTask, AgentMemory]
+}
+
+action storeStructuredMemory {
+  fn: import { storeStructuredMemory } from "@src/actions.js",
+  entities: [AgentMemory, Agent, User]
+}
+
+// Enhanced agent system queries
+query getAgentTasks {
+  fn: import { getAgentTasks } from "@src/queries.js",
+  entities: [AgentTask]
+}
+
+query getToolExecutions {
+  fn: import { getToolExecutions } from "@src/queries.js",
+  entities: [ToolExecution]
+}
+
+query getStructuredMemories {
+  fn: import { getStructuredMemories } from "@src/queries.js",
+  entities: [AgentMemory]
+}
+
+query getTaskHierarchy {
+  fn: import { getTaskHierarchy } from "@src/queries.js",
+  entities: [AgentTask]
+}
+
+// Enhanced agent system test action
+action testEnhancedAgents {
+  fn: import { testEnhancedAgentSystem } from "@src/agents/demoScript.js",
+  entities: [Agent, AgentMemory, AgentTask, ToolExecution, User]
+}
+
+// ============================================================================
+// MEGA AI ORCHESTRATION ACTIONS
+// ============================================================================
+
+// Enhanced runAgent with orchestration capabilities
+action runMegaAgent {
+  fn: import { runMegaAgent } from "@src/actions.js",
+  entities: [Agent, AgentMemory, User]
+}
+
+// Orchestration health check
+action checkOrchestrationHealth {
+  fn: import { checkOrchestrationHealth } from "@src/actions.js",
+  entities: [User]
+}
+
+// ============================================================================
+// CONNECTION MANAGEMENT SYSTEM
+// ============================================================================
+
+// Connection CRUD operations
+action createConnection {
+  fn: import { createConnection } from "@src/actions.js",
+  entities: [Connection, ConnectionLog, User]
+}
+
+action updateConnection {
+  fn: import { updateConnection } from "@src/actions.js",
+  entities: [Connection, ConnectionLog]
+}
+
+action deleteConnection {
+  fn: import { deleteConnection } from "@src/actions.js",
+  entities: [Connection, ConnectionLog, AgentConnection]
+}
+
+action testConnection {
+  fn: import { testConnection } from "@src/actions.js",
+  entities: [Connection, ConnectionLog]
+}
+
+action revokeConnection {
+  fn: import { revokeConnection } from "@src/actions.js",
+  entities: [Connection, ConnectionLog]
+}
+
+// Agent-Connection management
+action linkAgentConnection {
+  fn: import { linkAgentConnection } from "@src/actions.js",
+  entities: [Agent, Connection, AgentConnection]
+}
+
+action unlinkAgentConnection {
+  fn: import { unlinkAgentConnection } from "@src/actions.js",
+  entities: [AgentConnection]
+}
+
+// Connection queries
+query getUserConnections {
+  fn: import { getUserConnections } from "@src/queries.js",
+  entities: [Connection]
+}
+
+query getConnectionById {
+  fn: import { getConnectionById } from "@src/queries.js",
+  entities: [Connection]
+}
+
+query getAgentConnections {
+  fn: import { getAgentConnections } from "@src/queries.js",
+  entities: [Agent, AgentConnection, Connection]
+}
+
+query getConnectionLogs {
+  fn: import { getConnectionLogs } from "@src/queries.js",
+  entities: [ConnectionLog]
+}
+
+query getAvailableConnectionTypes {
+  fn: import { getAvailableConnectionTypes } from "@src/queries.js",
+  entities: [User]
+}
+
+// ============================================================================
+// SUPABASE CONNECTION WIZARD SYSTEM
+// ============================================================================
+
+query listConnections { 
+  fn: import { listConnections } from "@server/connections.ts" 
+}
+
+action testProviderConnectivity { 
+  fn: import { testProviderConnectivity } from "@server/connections.ts" 
+}
+
+action createConnection { 
+  fn: import { createConnection } from "@server/connections.ts" 
+}
+
+action deactivateConnection { 
+  fn: import { deactivateConnection } from "@server/connections.ts" 
+}
+
+action runAgentWithConnection {
+  fn: import { runAgentWithConnection } from "@src/actions.js"
+}
+
+action runOpenOpsAgent {
+  fn: import { runOpenOpsAgent } from "@src/actions.js"
 }

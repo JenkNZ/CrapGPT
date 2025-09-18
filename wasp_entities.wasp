@@ -1,0 +1,351 @@
+// CrapGPT Wasp Entities - Mirrors Supabase Schema
+// These entities match the Supabase schema exactly for seamless integration
+
+// ============================================================================
+// USER ENTITIES
+// ============================================================================
+
+entity User {=psl
+  id          String    @id @default(uuid())
+  email       String    @unique
+  name        String?
+  avatar      String?
+  preferences Json      @default("{}")
+  isEmailVerified Boolean @default(false)
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  conversations      Conversation[]
+  chatSessions       ChatSession[]
+  connections        Connection[]
+  agentMemories      AgentMemory[]
+  agentTasks         AgentTask[]
+  toolExecutions     ToolExecution[]
+  connectionLogs     ConnectionLog[]
+  connectionAudits   ConnectionAudit[]
+  securityEvents     SecurityEvent[]
+  jobs               Job[]
+
+  @@map("user_profiles")
+psl=}
+
+// ============================================================================
+// AGENT ENTITIES
+// ============================================================================
+
+entity Agent {=psl
+  id                     String   @id @default(uuid())
+  name                   String   @unique
+  description            String?
+  personality            String
+  personalityTraits      String[] @default([]) @map("personality_traits")
+  defaultProvider        String   @default("openrouter") @map("default_provider")
+  defaultModel           String   @default("openai/gpt-4o") @map("default_model")
+  memorySettings         Json     @default("{\"shortTermLimit\": 10, \"longTermLimit\": 100, \"contextWindow\": 8000}") @map("memory_settings")
+  toolAccess             Json     @default("{}") @map("tool_access")
+  tools                  String[] @default([])
+  capabilities           Json     @default("{}")
+  isActive               Boolean  @default(true) @map("is_active")
+  canDelegate            Boolean  @default(false) @map("can_delegate")
+  connectionRequirements Json     @default("{}") @map("connection_requirements")
+  createdAt              DateTime @default(now()) @map("created_at")
+  updatedAt              DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  memories              AgentMemory[]
+  chatMessages          ChatMessage[]
+  delegatedTasks        AgentTask[] @relation("DelegatingAgent")
+  executedTasks         AgentTask[] @relation("ExecutingAgent")
+  toolExecutions        ToolExecution[]
+  agentConnections      AgentConnection[]
+  jobs                  Job[]
+
+  @@map("agents")
+psl=}
+
+// ============================================================================
+// CONVERSATION ENTITIES
+// ============================================================================
+
+entity Conversation {=psl
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  title     String
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages Message[]
+
+  @@map("conversations")
+psl=}
+
+entity Message {=psl
+  id             String   @id @default(uuid())
+  conversationId String   @map("conversation_id")
+  role           String   // 'user' | 'assistant' | 'system'
+  content        String
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  // Relations
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@map("messages")
+psl=}
+
+// ============================================================================
+// CHAT SESSION ENTITIES (Enhanced Chat System)
+// ============================================================================
+
+entity ChatSession {=psl
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  title     String   @default("New Chat")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  user     User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages ChatMessage[]
+
+  @@map("chat_sessions")
+psl=}
+
+entity ChatMessage {=psl
+  id          String   @id @default(uuid())
+  sessionId   String   @map("session_id")
+  agentId     String?  @map("agent_id")
+  role        String   // 'user' | 'agent' | 'system'
+  content     String
+  images      String[] @default([])
+  isStreaming Boolean  @default(false) @map("is_streaming")
+  metadata    Json     @default("{}")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  session ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  agent   Agent?      @relation(fields: [agentId], references: [id])
+
+  @@map("chat_messages")
+psl=}
+
+// ============================================================================
+// CONNECTION ENTITIES
+// ============================================================================
+
+entity Connection {=psl
+  id          String    @id @default(uuid())
+  userId      String    @map("user_id")
+  type        String    // Provider type: "openops", "arcade", etc.
+  name        String
+  description String?
+  config      String    // Encrypted JSON string
+  scopes      String[]  @default([])
+  status      String    @default("active") // 'active' | 'failed' | 'revoked' | 'testing'
+  isActive    Boolean   @default(true) @map("is_active")
+  isDeleted   Boolean   @default(false) @map("is_deleted")
+  lastUsed    DateTime? @map("last_used")
+  metadata    Json      @default("{}")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  user              User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  logs              ConnectionLog[]
+  audits            ConnectionAudit[]
+  agentConnections  AgentConnection[]
+  jobs              Job[]
+  securityEvents    SecurityEvent[]
+
+  @@map("connections")
+psl=}
+
+entity ConnectionLog {=psl
+  id           String    @id @default(uuid())
+  connectionId String    @map("connection_id")
+  userId       String    @map("user_id")
+  action       String
+  context      Json      @default("{}")
+  ipAddress    String?   @map("ip_address")
+  userAgent    String?   @map("user_agent")
+  success      Boolean
+  error        String?
+  createdAt    DateTime  @default(now()) @map("created_at")
+
+  // Relations
+  connection Connection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("connection_logs")
+psl=}
+
+entity AgentConnection {=psl
+  id           String   @id @default(uuid())
+  agentId      String   @map("agent_id")
+  connectionId String   @map("connection_id")
+  permissions  String[] @default([])
+  isRequired   Boolean  @default(false) @map("is_required")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  agent      Agent      @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  connection Connection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+
+  @@unique([agentId, connectionId], name: "agentId_connectionId")
+  @@map("agent_connections")
+psl=}
+
+// ============================================================================
+// AGENT MEMORY ENTITIES
+// ============================================================================
+
+entity AgentMemory {=psl
+  id             String    @id @default(uuid())
+  agentId        String    @map("agent_id")
+  userId         String    @map("user_id")
+  input          String
+  output         String
+  context        Json?
+  structuredData Json?     @map("structured_data")
+  memoryType     String    @default("short_term") @map("memory_type") // 'short_term' | 'long_term' | 'structured' | 'task' | 'episodic'
+  importance     Int       @default(1) // 0-10 scale
+  tags           String[]  @default([])
+  relatedTaskId  String?   @map("related_task_id")
+  createdAt      DateTime  @default(now()) @map("created_at")
+
+  // Relations
+  agent Agent @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("agent_memories")
+psl=}
+
+// ============================================================================
+// TASK & JOB ORCHESTRATION ENTITIES
+// ============================================================================
+
+entity AgentTask {=psl
+  id                  String    @id @default(uuid())
+  userId              String    @map("user_id")
+  delegatingAgentId   String?   @map("delegating_agent_id")
+  executingAgentId    String?   @map("executing_agent_id")
+  parentTaskId        String?   @map("parent_task_id")
+  title               String
+  description         String?
+  input               Json?
+  output              Json?
+  metadata            Json      @default("{}")
+  status              String    @default("pending") // 'pending' | 'running' | 'completed' | 'failed' | 'cancelled'
+  priority            Int       @default(5) // 1-10 scale
+  createdAt           DateTime  @default(now()) @map("created_at")
+  completedAt         DateTime? @map("completed_at")
+
+  // Relations
+  user              User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  delegatingAgent   Agent?          @relation("DelegatingAgent", fields: [delegatingAgentId], references: [id])
+  executingAgent    Agent?          @relation("ExecutingAgent", fields: [executingAgentId], references: [id])
+  parentTask        AgentTask?      @relation("TaskHierarchy", fields: [parentTaskId], references: [id])
+  subtasks          AgentTask[]     @relation("TaskHierarchy")
+  toolExecutions    ToolExecution[]
+  jobs              Job[]
+
+  @@map("agent_tasks")
+psl=}
+
+entity Job {=psl
+  id                String    @id @default(uuid())
+  userId            String    @map("user_id")
+  agentId           String?   @map("agent_id")
+  connectionId      String?   @map("connection_id")
+  taskId            String?   @map("task_id")
+  jobType           String    @map("job_type") // "llm-inference", "infrastructure-deployment", "media-generation"
+  input             Json
+  result            Json?
+  status            String    @default("pending") // 'pending' | 'running' | 'completed' | 'failed' | 'cancelled'
+  priority          String    @default("normal") // 'low' | 'normal' | 'high' | 'urgent'
+  executionLocation String?   @map("execution_location") // "local", "worker", "provider"
+  provider          String?   // "openrouter", "arcade", "fal", etc.
+  metadata          Json      @default("{}")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  startedAt         DateTime? @map("started_at")
+  completedAt       DateTime? @map("completed_at")
+  retryCount        Int       @default(0) @map("retry_count")
+  maxRetries        Int       @default(3) @map("max_retries")
+
+  // Relations
+  user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  agent      Agent?      @relation(fields: [agentId], references: [id])
+  connection Connection? @relation(fields: [connectionId], references: [id])
+  task       AgentTask?  @relation(fields: [taskId], references: [id])
+
+  @@map("jobs")
+psl=}
+
+// ============================================================================
+// TOOL EXECUTION ENTITIES
+// ============================================================================
+
+entity ToolExecution {=psl
+  id               String    @id @default(uuid())
+  userId           String    @map("user_id")
+  agentId          String?   @map("agent_id")
+  taskId           String?   @map("task_id")
+  toolName         String    @map("tool_name")
+  input            Json
+  output           Json?
+  status           String    @default("pending") // 'pending' | 'running' | 'completed' | 'failed'
+  executionTimeMs  Int?      @map("execution_time_ms")
+  metadata         Json      @default("{}")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  completedAt      DateTime? @map("completed_at")
+
+  // Relations
+  user  User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  agent Agent?     @relation(fields: [agentId], references: [id])
+  task  AgentTask? @relation(fields: [taskId], references: [id])
+
+  @@map("tool_executions")
+psl=}
+
+// ============================================================================
+// SECURITY & AUDIT ENTITIES
+// ============================================================================
+
+entity ConnectionAudit {=psl
+  id           String   @id @default(uuid())
+  connectionId String   @map("connection_id")
+  userId       String   @map("user_id")
+  eventType    String   @map("event_type")
+  details      Json     @default("{}")
+  ipAddress    String?  @map("ip_address")
+  userAgent    String?  @map("user_agent")
+  timestamp    DateTime @default(now())
+
+  // Relations
+  connection Connection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("connection_audits")
+psl=}
+
+entity SecurityEvent {=psl
+  id           String    @id @default(uuid())
+  userId       String?   @map("user_id")
+  connectionId String?   @map("connection_id")
+  eventType    String    @map("event_type")
+  details      Json      @default("{}")
+  severity     String    @default("info") // 'info' | 'warning' | 'error' | 'critical'
+  ipAddress    String?   @map("ip_address")
+  userAgent    String?   @map("user_agent")
+  timestamp    DateTime  @default(now())
+
+  // Relations
+  user       User?       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  connection Connection? @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+
+  @@map("security_events")
+psl=}
