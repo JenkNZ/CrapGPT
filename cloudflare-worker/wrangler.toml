@@ -1,0 +1,22 @@
+name = "crapgpt-r2-gateway"
+main = "src/index.ts"
+compatibility_date = "2025-01-15"
+
+# bind your bucket - no access keys required
+[[r2_buckets]]
+binding = "R2"                 # available as env.R2 in code
+bucket_name = "crapgpt-artifacts"
+
+# attach to your zone - serves under api.crapgpt.lol/*
+routes = [
+  { pattern = "api.crapgpt.lol/*", zone_id = "6802db9cf399f9b8a0e2ed94cc99cf4f" }
+]
+
+# plain vars
+[vars]
+MAX_FILE_SIZE = "104857600"     # 100 MB
+ALLOW_ORIGINS = "https://crapgpt.lol,https://www.crapgpt.lol"
+
+# secrets you will add with `wrangler secret put`:
+# WORKER_API_KEY - simple server-to-worker auth shared with your VPS
+# SUPABASE_JWT_PUBLIC_KEY - optional, for validating Supabase user JWTs at the edge
