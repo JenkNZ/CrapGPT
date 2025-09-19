@@ -287,6 +287,6 @@ const usagePatterns = {
 
 ---
 
-*This demonstrates AgentForge's capabilities far beyond simple coding assistance — it's a complete AI orchestration platform that can handle complex, multi-faceted projects with the satirical CrapGPT flair intact.*
+*AgentForge handles complex stuff. Multi-agent workflows, model selection, whatever you need. It works.*
 
-**"Chronicling the future of AI orchestration, one absurdly sophisticated workflow at a time."**
+**"Another day, another AI orchestration platform. Whatever."**
