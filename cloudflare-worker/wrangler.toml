@@ -2,15 +2,15 @@ name = "crapgpt-r2-gateway"
 main = "src/index.ts"
 compatibility_date = "2025-01-15"
 
-# bind your bucket - no access keys required
-[[r2_buckets]]
-binding = "R2"                 # available as env.R2 in code
-bucket_name = "crapgpt-artifacts"
-
 # attach to your zone - serves under api.crapgpt.lol/*
 routes = [
   { pattern = "api.crapgpt.lol/*", zone_id = "6802db9cf399f9b8a0e2ed94cc99cf4f" }
 ]
+
+# bind your bucket - no access keys required
+[[r2_buckets]]
+binding = "R2"                 # available as env.R2 in code
+bucket_name = "crapgpt-artifacts"
 
 # plain vars
 [vars]

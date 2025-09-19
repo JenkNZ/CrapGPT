@@ -32,6 +32,7 @@ MODELSLAB_API_KEY=""
 MCPJUNGLE_URL=""
 MCPJUNGLE_CLIENT_TOKEN=""
 HEXSTRIKE_CONFIG='{"serverUrl":"http://localhost:8888","transport":"mcp-http","toolWhitelist":["nmap","httpx","nuclei","subfinder","katana","gobuster"],"maxConcurrentTools":3,"timeoutSec":300,"sandbox":{"workDir":"/tmp/hexstrike","allowNet":true,"allowFS":true}}'
+WORKER_API_KEY="YzEzZmViZWQtNzM3NS00MjZlLWI5MTYtMzRmNWM3ZTBhNmQyMTc1ODI4MDgwNA=="
 JWT_SECRET=""
 ENCRYPTION_KEY_32B=""
 # ------------------------------------------------------------
@@ -183,6 +184,7 @@ MODELSLAB_API_KEY=
 MCPJUNGLE_URL=
 MCPJUNGLE_CLIENT_TOKEN=
 HEXSTRIKE_CONFIG={\"serverUrl\":\"http://localhost:8888\",\"transport\":\"mcp-http\",\"toolWhitelist\":[\"nmap\",\"httpx\",\"nuclei\",\"subfinder\",\"katana\",\"gobuster\"],\"maxConcurrentTools\":3,\"timeoutSec\":300,\"sandbox\":{\"workDir\":\"/tmp/hexstrike\",\"allowNet\":true,\"allowFS\":true}}
+WORKER_API_KEY=
 JWT_SECRET=
 ENCRYPTION_KEY_32B=
 ENVV"
@@ -270,6 +272,7 @@ MODELSLAB_API_KEY=${MODELSLAB_API_KEY}
 MCPJUNGLE_URL=${MCPJUNGLE_URL}
 MCPJUNGLE_CLIENT_TOKEN=${MCPJUNGLE_CLIENT_TOKEN}
 HEXSTRIKE_CONFIG=${HEXSTRIKE_CONFIG}
+WORKER_API_KEY=${WORKER_API_KEY}
 JWT_SECRET=${JWT_SECRET}
 ENCRYPTION_KEY_32B=${ENCRYPTION_KEY_32B}
 ENVV
