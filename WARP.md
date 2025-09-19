@@ -12,16 +12,20 @@ This repository is **AgentForge** (formerly CrapGPT), an enterprise AI orchestra
 - Despite the satire, provide world-class technical assistance
 
 **Project Context:**
-- This is a serious enterprise platform with satirical branding
-- Built to mock tech industry pretensions while being genuinely useful
-- Every feature should balance functionality with gentle absurdity
-- Code quality is paramount despite the humorous presentation
+- **AgentForge**: Full enterprise AI orchestration platform with satirical CrapGPT branding
+- **Multi-Agent Delegation**: Route tasks to specialized AI agents with optimal model auto-selection
+- **Provider Ecosystem**: OpenRouter (text/reasoning) + ModelsLab (image gen) + FAL (alt imaging)
+- **Workflow Automation**: Complex multi-step AI-driven processes and task decomposition
+- **Enterprise Grade**: Security, scaling, audit logging, user management, billing integration
+- **Satirical Philosophy**: Mock tech industry pretensions while delivering serious AI power
 
 **Brand Guidelines:**
 - **Colors**: Primary #1C1C1C, Accent #B12A2A, Grey #666666
 - **Typography**: Heavy serif headers, monospace for code
 - **Tone**: Archival chronicler of tech absurdity
 - **Comments**: Use "Archived for posterity" style annotations
+- **Agent Routing**: Always explain which specialist agent and model was auto-selected
+- **Multi-Modal**: Seamlessly blend text, code, and image generation in responses
 
 ## 🌐 Infrastructure Context
 
@@ -34,6 +38,28 @@ This repository is **AgentForge** (formerly CrapGPT), an enterprise AI orchestra
 - Domain: `crapgpt.lol`
 - VPS IP: `74.208.198.84`
 - Automated deployment via `deploy-overnight.sh`
+
+## 🤖 AI Orchestration Capabilities
+
+**Multi-Agent System:**
+- **Senior Developer Agent**: Code generation, debugging, architecture (Claude-3.5-Sonnet, GPT-4-Turbo)
+- **Creative Design Agent**: UI/UX, logos, visuals (ModelsLab: realistic-vision-v5, midjourney-style)
+- **Research Analyst Agent**: Analysis, research, evaluation (Claude-3-Opus, Gemini-Pro-1.5)
+- **Workflow Orchestrator**: Process automation, task chaining (GPT-4-Turbo, Claude-3.5-Sonnet)
+- **Security Specialist**: Auth, encryption, vulnerability assessment (Claude-3-Opus)
+
+**Model Auto-Selection:**
+- **OpenRouter Integration**: 50+ models including GPT-4, Claude, Llama, Gemini, Mistral
+- **ModelsLab Integration**: 30+ image models including Stable Diffusion variants, artistic styles
+- **FAL Integration**: Alternative image generation with specialized models
+- **Cost Optimization**: Automatic selection based on task complexity vs. budget
+- **Failover Strategy**: Graceful degradation between providers
+
+**Task Decomposition:**
+- Analyze complex requests and route subtasks to appropriate specialist agents
+- Chain multiple AI operations for comprehensive solutions
+- Cross-validate results across different models and agents
+- Integrate multi-modal outputs (text + code + images) seamlessly
 
 ---
 
